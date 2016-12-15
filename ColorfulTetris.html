@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title></title>
+    <script src="jquery.js"></script>
+    <style>
+        #uiInterface{
+            height: 832px;  width: 832px;
+            border: solid indianred;position: absolute;
+            left: 20%;
+            top: 20%;
+        }
+        .area{
+            height: 50px;
+            width: 50px;
+            background-color: white;
+            border: 1px solid rgba(150, 158, 157, 0.64);
+            font-size: 3em;
+            float: left;
+        }
+        .cell-elem{
+            /*background-color: #9091dc;*/
+        }
+    </style>
+</head>
+<body style="text-align: center;position: relative;">
+<div  id="uiInterface" ></div>
+<div id="mineTemplate" style="display: none">
+    <div class="area"  id="4_5" ></div>
+</div>
+</body>
+<script>
+    var maxCol = new Number(16);
+    var maxRow = new Number(16);
+    var square;
+    $(function(){
+        //生成界面
+        for(var i=0;i<maxRow;i++){
+            for(var j=0;j<maxCol;j++){
+                var area = $('#mineTemplate .area').clone();
+                area.attr('id',i+'_'+j);
+                $('div#uiInterface').append(area);
+            }
+        }
+        //生成square
+        square = new Square();
+        //方向监听
+        $(window).on('keydown',function(e){//方向 ←37 ↑38 →39 ↓40
+            if(e.keyCode==37){
+                square.leftStep();
+            }else if(e.keyCode==39){
+                square.rightStep();
+            }else if(e.keyCode==40){
+                square.downStep();
+            }else if(e.keyCode==38){
+                square.changeShapeAndDraw();
+            }
+        });
+        square.move();
+    });
+    function removeCell(row,col){
+        var cell = $('#'+row+'_'+col);
+        cell.removeClass('cell-elem');
+        cell.css('background-color','white');
+    }
+    function addCell(row,col){//转换成七彩方块
+        var r= Math.ceil(Math.random()*255);
+        var g= Math.ceil(Math.random()*255);
+        var b= Math.ceil(Math.random()*255);
+        while(r==255&&g==255&&b==255){
+            r= Math.ceil(Math.random()*255);
+            g= Math.ceil(Math.random()*255);
+            b= Math.ceil(Math.random()*255);
+        }
+        var cell = $('#'+row+'_'+col);
+        cell.addClass('cell-elem');
+        cell.css('background-color','rgb('+r+','+g+','+b+')');
+        //$('#'+row+'_'+col).addClass('cell-elem');
+    }
+    /*function removeCell(row,col){
+        $('#'+row+'_'+col).removeClass('cell-elem');
+    }
+    function addCell(row,col){//正常方块
+        $('#'+row+'_'+col).addClass('cell-elem');
+    }*/
+    function isBottomCell(row,col){
+        return $('#'+row+'_'+col).hasClass('cell-elem');
+    }
+    function Square(){
+        var curShape = new Object();
+        curShape.state = 0;//0表示可用，1表示正在移动中
+        curShape.body = new Array();//使用二维数组，自底向上，自左向右。
+        curShape.type;
+        //共7类,19种形状，条形2种，田形1种，-_2种(水平和垂直), _-2种  凸4种  L4种 反向L4种
+        curShape.allShape = [[0,1],[0],[0,1],[0,1],[0,1,2,3],[0,1,2,3],[0,1,2,3]];
+        curShape.initShape = function(){//水平方向随机位置,生成当前方块的形状
+            var randomType = Math.ceil(Math.random()*7)-1;
+            var someType = Math.ceil(Math.random()*curShape.allShape[randomType].length)-1;
+            curShape.type = randomType*10 + someType;//类别*10+形状数量
+            var startRow = -1;//-1行，在屏幕之外
+            var starCol = Math.ceil(Math.random()*(maxCol-1));
+            curShape._changeShape(startRow,starCol,curShape.type);
+        };
+        curShape._changeShape=function(startRow,startCol,type){
+            curShape.body = new Array();
+            switch (type){
+                case 0:{//横向长条
+                    var curMaxCol = maxCol-4;
+                    var curMinCol = 0;
+                    startCol = startCol<=curMaxCol?startCol:curMaxCol;
+                    startCol = startCol>=curMinCol?startCol:curMinCol;
+                    var startEle = new Element(startRow,startCol);
+                    var array0 = new Array();
+                    array0.push(startEle);
+                    for(var i=1;i<=3;i++){
+                        array0.push(new Element(startEle.row,startEle.col+i));
+                    }
+                    curShape.body.push(array0);
+                    break;
+                }
+                case 1:{//纵向长条
+                    var startEle = new Element(startRow,startCol);
+                    var array0 = new Array();array0.push(startEle);
+                    curShape.body.push(array0);
+                    for(var i=1;i<=3;i++){
+                        var array1 = new Array();array1.push(new Element(startEle.row-i,startEle.col));
+                        curShape.body.push(array1);
+                    }
+                    break;
+                }
+                case 10:{//田形
+                    var curMaxCol = maxCol-2;
+                    var curMinCol = 0;
+                    startCol = startCol<=curMaxCol?startCol:curMaxCol;
+                    startCol = startCol>=curMinCol?startCol:curMinCol;
+                    var startEle = new Element(startRow,startCol);
+                    var array0 = new Array();
+                    var array1 = new Array();
+                    curShape.body.push(array0);
+                    curShape.body.push(array1);
+                    array0.push(startEle);
+                    array0.push(new Element(startEle.row,startEle.col+1));
+                    array1.push(new Element(startEle.row-1,startEle.col));
+                    array1.push(new Element(startEle.row-1,startEle.col+1));
+                    break;
+                }
+                case 20:{//-_形，水平方向
+                    var curMaxCol = maxCol-2;
+                    var curMinCol = 1;
+                    startCol = startCol<=curMaxCol?startCol:curMaxCol;
+                    startCol = startCol>=curMinCol?startCol:curMinCol;
+                    var startEle = new Element(startRow,startCol);
+                    var array0 = new Array();
+                    var array1 = new Array();
+                    curShape.body.push(array0);
+                    curShape.body.push(array1);
+                    array0.push(startEle);
+                    array0.push(new Element(startEle.row,startEle.col+1));
+                    array1.push(new Element(startEle.row-1,startEle.col-1));
+                    array1.push(new Element(startEle.row-1,startEle.col));
+                    break;
+                }
+                case 21:{//-_形，垂直方向
+                    var curMaxCol = maxCol-2;
+                    var curMinCol = 0;
+                    startCol = startCol<=curMaxCol?startCol:curMaxCol;
+                    startCol = startCol>=curMinCol?startCol:curMinCol;
+                    var startEle = new Element(startRow,startCol);
+                    var array0 = new Array();
+                    var array1 = new Array();
+                    var array2 = new Array();
+                    curShape.body.push(array0);
+                    curShape.body.push(array1);
+                    curShape.body.push(array2);
+                    array0.push(startEle);
+                    array1.push(new Element(startEle.row-1,startEle.col));
+                    array1.push(new Element(startEle.row-1,startEle.col+1));
+                    array2.push(new Element(startEle.row-2,startEle.col+1));
+                    break;
+                }
+                case 30:{//_-形，水平方向
+                    var curMaxCol = maxCol-3;
+                    var curMinCol = 0;
+                    startCol = startCol<=curMaxCol?startCol:curMaxCol;
+                    startCol = startCol>=curMinCol?startCol:curMinCol;
+                    var startEle = new Element(startRow,startCol);
+                    var array0 = new Array();
+                    var array1 = new Array();
+                    curShape.body.push(array0);
+                    curShape.body.push(array1);
+                    array0.push(startEle);
+                    array0.push(new Element(startEle.row,startEle.col+1));
+                    array1.push(new Element(startEle.row-1,startEle.col+1));
+                    array1.push(new Element(startEle.row-1,startEle.col+2));
+                    break;
+                }
+                case 31:{//_-形，垂直方向
+                    var curMaxCol = maxCol-1;
+                    var curMinCol = 1;
+                    startCol = startCol<=curMaxCol?startCol:curMaxCol;
+                    startCol = startCol>=curMinCol?startCol:curMinCol;
+                    var startEle = new Element(startRow,startCol);
+                    var array0 = new Array();
+                    var array1 = new Array();
+                    var array2 = new Array();
+                    curShape.body.push(array0);
+                    curShape.body.push(array1);
+                    curShape.body.push(array2);
+                    array0.push(startEle);
+                    array1.push(new Element(startEle.row-1,startEle.col-1));
+                    array1.push(new Element(startEle.row-1,startEle.col));
+                    array2.push(new Element(startEle.row-2,startEle.col-1));
+                    break;
+                }
+                case 40:{//凸形，向上
+                    var curMaxCol = maxCol-3;
+                    var curMinCol = 0;
+                    startCol = startCol<=curMaxCol?startCol:curMaxCol;
+                    startCol = startCol>=curMinCol?startCol:curMinCol;
+                    var startEle = new Element(startRow,startCol);
+                    var array0 = new Array();
+                    var array1 = new Array();
+                    curShape.body.push(array0);
+                    curShape.body.push(array1);
+                    array0.push(startEle);
+                    array0.push(new Element(startEle.row,startEle.col+1));
+                    array0.push(new Element(startEle.row,startEle.col+2));
+                    array1.push(new Element(startEle.row-1,startEle.col+1));
+                    break;
+                }
+                case 41:{//凸形，右
+                    var curMaxCol = maxCol-2;
+                    var curMinCol = 0;
+                    startCol = startCol<=curMaxCol?startCol:curMaxCol;
+                    startCol = startCol>=curMinCol?startCol:curMinCol;
+                    var startEle = new Element(startRow,startCol);
+                    var array0 = new Array();
+                    var array1 = new Array();
+                    var array2 = new Array();
+                    curShape.body.push(array0);
+                    curShape.body.push(array1);
+                    curShape.body.push(array2);
+                    array0.push(startEle);
+                    array1.push(new Element(startEle.row-1,startEle.col));
+                    array1.push(new Element(startEle.row-1,startEle.col+1));
+                    array2.push(new Element(startEle.row-2,startEle.col));
+                    break;
+                }
+                case 42:{//凸形，下
+                    var curMaxCol = maxCol-2;
+                    var curMinCol = 1;
+                    startCol = startCol<=curMaxCol?startCol:curMaxCol;
+                    startCol = startCol>=curMinCol?startCol:curMinCol;
+                    var startEle = new Element(startRow,startCol);
+                    var array0 = new Array();
+                    var array1 = new Array();
+                    curShape.body.push(array0);
+                    curShape.body.push(array1);
+                    array0.push(startEle);
+                    array1.push(new Element(startEle.row-1,startEle.col-1));
+                    array1.push(new Element(startEle.row-1,startEle.col));
+                    array1.push(new Element(startEle.row-1,startEle.col+1));
+                    break;
+                }
+                case 43:{//凸形，左
+                    var curMaxCol = maxCol-1;
+                    var curMinCol = 1;
+                    startCol = startCol<=curMaxCol?startCol:curMaxCol;
+                    startCol = startCol>=curMinCol?startCol:curMinCol;
+                    var startEle = new Element(startRow,startCol);
+                    var array0 = new Array();
+                    var array1 = new Array();
+                    var array2 = new Array();
+                    curShape.body.push(array0);
+                    curShape.body.push(array1);
+                    curShape.body.push(array2);
+                    array0.push(startEle);
+                    array1.push(new Element(startEle.row-1,startEle.col-1));
+                    array1.push(new Element(startEle.row-1,startEle.col));
+                    array2.push(new Element(startEle.row-2,startEle.col));
+                    break;
+                }
+                case 50:{//L形，上
+                    var curMaxCol = maxCol-2;
+                    var curMinCol = 0;
+                    startCol = startCol<=curMaxCol?startCol:curMaxCol;
+                    startCol = startCol>=curMinCol?startCol:curMinCol;
+                    var startEle = new Element(startRow,startCol);
+                    var array0 = new Array();
+                    var array1 = new Array();
+                    var array2 = new Array();
+                    curShape.body.push(array0);
+                    curShape.body.push(array1);
+                    curShape.body.push(array2);
+                    array0.push(startEle);
+                    array0.push(new Element(startEle.row,startEle.col+1));
+                    array1.push(new Element(startEle.row-1,startEle.col));
+                    array2.push(new Element(startEle.row-2,startEle.col));
+                    break;
+                }
+                case 51:{//L形，右
+                    var curMaxCol = maxCol-3;
+                    var curMinCol = 0;
+                    startCol = startCol<=curMaxCol?startCol:curMaxCol;
+                    startCol = startCol>=curMinCol?startCol:curMinCol;
+                    var startEle = new Element(startRow,startCol);
+                    var array0 = new Array();
+                    var array1 = new Array();
+                    curShape.body.push(array0);
+                    curShape.body.push(array1);
+                    array0.push(startEle);
+                    array1.push(new Element(startEle.row-1,startEle.col));
+                    array1.push(new Element(startEle.row-1,startEle.col+1));
+                    array1.push(new Element(startEle.row-1,startEle.col+2));
+                    break;
+                }
+                case 52:{//L形，下
+                    var curMaxCol = maxCol-1;
+                    var curMinCol = 1;
+                    startCol = startCol<=curMaxCol?startCol:curMaxCol;
+                    startCol = startCol>=curMinCol?startCol:curMinCol;
+                    var startEle = new Element(startRow,startCol);
+                    var array0 = new Array();
+                    var array1 = new Array();
+                    var array2 = new Array();
+                    curShape.body.push(array0);
+                    curShape.body.push(array1);
+                    curShape.body.push(array2);
+                    array0.push(startEle);
+                    array1.push(new Element(startEle.row-1,startEle.col));
+                    array2.push(new Element(startEle.row-2,startEle.col-1));
+                    array2.push(new Element(startEle.row-2,startEle.col));
+                    break;
+                }
+                case 53:{//L形，左
+                    var curMaxCol = maxCol-3;
+                    var curMinCol = 0;
+                    startCol = startCol<=curMaxCol?startCol:curMaxCol;
+                    startCol = startCol>=curMinCol?startCol:curMinCol;
+                    var startEle = new Element(startRow,startCol);
+                    var array0 = new Array();
+                    var array1 = new Array();
+                    curShape.body.push(array0);
+                    curShape.body.push(array1);
+                    array0.push(startEle);
+                    array0.push(new Element(startEle.row,startEle.col+1));
+                    array0.push(new Element(startEle.row,startEle.col+2));
+                    array1.push(new Element(startEle.row-1,startEle.col+2));
+                    break;
+                }
+                case 60:{//反L形，上
+                    var curMaxCol = maxCol-2;
+                    var curMinCol = 0;
+                    startCol = startCol<=curMaxCol?startCol:curMaxCol;
+                    startCol = startCol>=curMinCol?startCol:curMinCol;
+                    var startEle = new Element(startRow,startCol);
+                    var array0 = new Array();
+                    var array1 = new Array();
+                    var array2 = new Array();
+                    curShape.body.push(array0);
+                    curShape.body.push(array1);
+                    curShape.body.push(array2);
+                    array0.push(startEle);
+                    array0.push(new Element(startEle.row,startEle.col+1));
+                    array1.push(new Element(startEle.row-1,startEle.col+1));
+                    array2.push(new Element(startEle.row-2,startEle.col+1));
+                    break;
+                }
+                case 61:{//反L形，右
+                    var curMaxCol = maxCol-3;
+                    var curMinCol = 0;
+                    startCol = startCol<=curMaxCol?startCol:curMaxCol;
+                    startCol = startCol>=curMinCol?startCol:curMinCol;
+                    var startEle = new Element(startRow,startCol);
+                    var array0 = new Array();
+                    var array1 = new Array();
+                    curShape.body.push(array0);
+                    curShape.body.push(array1);
+                    array0.push(startEle);
+                    array0.push(new Element(startEle.row,startEle.col+1));
+                    array0.push(new Element(startEle.row,startEle.col+2));
+                    array1.push(new Element(startEle.row-1,startEle.col));
+                    break;
+                }
+                case 62:{//反L形，下
+                    var curMaxCol = maxCol-2;
+                    var curMinCol = 0;
+                    startCol = startCol<=curMaxCol?startCol:curMaxCol;
+                    startCol = startCol>=curMinCol?startCol:curMinCol;
+                    var startEle = new Element(startRow,startCol);
+                    var array0 = new Array();
+                    var array1 = new Array();
+                    var array2 = new Array();
+                    curShape.body.push(array0);
+                    curShape.body.push(array1);
+                    curShape.body.push(array2);
+                    array0.push(startEle);
+                    array1.push(new Element(startEle.row-1,startEle.col));
+                    array2.push(new Element(startEle.row-2,startEle.col));
+                    array2.push(new Element(startEle.row-2,startEle.col+1));
+                    break;
+                }
+                case 63:{//反L形，左
+                    var curMaxCol = maxCol-3;
+                    var curMinCol = 0;
+                    startCol = startCol<=curMaxCol?startCol:curMaxCol;
+                    startCol = startCol>=curMinCol?startCol:curMinCol;
+                    var startEle = new Element(startRow,startCol);
+                    var array0 = new Array();
+                    var array1 = new Array();
+                    curShape.body.push(array0);
+                    curShape.body.push(array1);
+                    array0.push(startEle);
+                    array1.push(new Element(startEle.row-1,startEle.col-2));
+                    array1.push(new Element(startEle.row-1,startEle.col-1));
+                    array1.push(new Element(startEle.row-1,startEle.col));
+                    break;
+                }
+            }
+        };
+        curShape.changeShapeAndDraw=function(){//切换形状
+            if(curShape.type==10){//田形不变换
+                return;
+            }
+            if(curShape.state==1){
+                return;
+            }
+            curShape.state=1;
+            var type;
+            if(parseInt(curShape.type/10)==0){//条形
+                type=(curShape.type+1)%2;
+            }else if(parseInt(curShape.type/10)==2){//-_形
+                type=20+(curShape.type+1)%20%2;
+            }else if(parseInt(curShape.type/10)==3){//_-形
+                type=30+(curShape.type+1)%30%2;
+            }else if(parseInt(curShape.type/10)==4){//凸形
+                type=40+(curShape.type+1)%40%4;
+            }else if(parseInt(curShape.type/10)==5){//L形
+                type=50+(curShape.type+1)%50%4;
+            }
+            else if(parseInt(curShape.type/10)==6){//反L形
+                type=60+(curShape.type+1)%60%4;
+            }
+            var starCell = curShape.body[0][0];
+            var originBody = curShape.body;
+            for(var i=0;i<originBody.length;i++){
+                for(var j=0;j<originBody[i].length;j++){
+                    removeCell(originBody[i][j].row,originBody[i][j].col);//先移除，防止与变形前的自己碰撞
+                }
+            }
+            curShape._changeShape(starCell.row,starCell.col,type);
+            if(curShape.crashTest(4)){
+                curShape.body=originBody;
+                curShape.state=0;
+                return;
+            }
+            curShape.type=type;
+            for(var i=0;i<curShape.body.length;i++){
+                for(var j=0;j<curShape.body[i].length;j++){
+                    addCell(curShape.body[i][j].row,curShape.body[i][j].col);
+                }
+            }
+            curShape.state=0;
+        };
+        curShape.crashTest = function (direction) {//碰撞检测，1表示左，2表示右，3表示下 4表示上
+            if(direction==1){
+                for(var i=0;i<curShape.body.length;i++){
+                    var curCell = curShape.body[i][0];
+                    if(curCell.col==0||isBottomCell(curCell.row,curCell.col-1)){
+                        return true;
+                    }
+                }
+            }else if(direction==2){
+                for(var i=0;i<curShape.body.length;i++){
+                    var lineLength = curShape.body[i].length;
+                    var curCell = curShape.body[i][lineLength-1];
+                    if(curCell.col==(maxCol-1)||isBottomCell(curCell.row,curCell.col+1)){
+                        return true;
+                    }
+                }
+            }else if(direction==3){
+                var hashSet = new HashSet();
+                //方块中同一列只检查最下方的
+                for(var i=0;i<curShape.body.length;i++){
+                    for(var j=0;j<curShape.body[i].length;j++){
+                        var curCell = curShape.body[i][j];
+                        if(hashSet.add(curCell.col)){
+                            if(isBottomCell(curCell.row+1,curCell.col)){
+                                clearBottomSquare(curShape);
+                                curShape.initShape();
+                                return true;
+                            }else if(curCell.row==maxRow-1){
+                                clearBottomSquare(curShape);
+                                curShape.initShape();
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }else if(direction==4){
+                for(var i=0;i<curShape.body.length;i++){
+                    for(var j=0;j<curShape.body[i].length;j++){
+                        var curCell = curShape.body[i][j];
+                        if(isBottomCell(curCell.row,curCell.col)){
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        };
+        curShape.leftStep = function(){//左移动
+            if(curShape.state==1){
+                return;
+            }
+            curShape.state=1;
+            if(curShape.crashTest(1)){
+                curShape.state=0;
+                return;
+            }
+            for(var i=0;i<curShape.body.length;i++){
+                for(var j=0;j<curShape.body[i].length;j++){
+                    var curCell = curShape.body[i][j];
+                    removeCell(curCell.row,curCell.col);
+                    addCell(curCell.row,--curCell.col);
+                }
+            }
+            curShape.state=0;
+        };
+        curShape.rightStep = function(){//右移动
+            if(curShape.state==1){
+                return;
+            }
+            curShape.state=1;
+            if(curShape.crashTest(2)){
+                curShape.state=0;
+                return;
+            }
+            for(var i=0;i<curShape.body.length;i++){
+                for(var j=curShape.body[i].length-1;j>=0;j--){
+                    var curCell = curShape.body[i][j];
+                    removeCell(curCell.row,curCell.col);
+                    addCell(curCell.row,++curCell.col);
+                }
+            }
+            curShape.state=0;
+        };
+        curShape.downStep = function(){//向下移动一步，1状态检测 2底部消除 3重置
+            if(curShape.state==1){
+                return;
+            }
+            curShape.state=1;
+            if(curShape.crashTest(3)){
+                curShape.state=0;
+                return;
+            }
+            for(var i=0;i<curShape.body.length;i++){
+                for(var j=0;j<curShape.body[i].length;j++){
+                    var curCell = curShape.body[i][j];
+                    removeCell(curCell.row,curCell.col);
+                    addCell(++curCell.row,curCell.col)
+                }
+            }
+            curShape.state=0;
+        };
+        curShape.move = function(){//1方块左右移动 2到达底部时停止移动
+            setInterval(function(){
+                curShape.downStep();
+            },800);
+        };
+        curShape.initShape();//初始化当前方块
+        return curShape;
+    }
+    function clearBottomSquare(square){
+        var count = 0;
+        var totalCount=0;
+        var removeRow=0;
+        for(var k=0;k<square.body.length;k++){
+            var curCell = square.body[k][0];
+            if(checkRowSquare(curCell.row-totalCount)){
+                if(count==0){
+                    removeRow=curCell.row-totalCount;
+                }
+                ++count;
+            }else if(count>0){
+                removeFitSquares(removeRow,count);
+                totalCount+=count;
+                count=0;
+            }
+        }
+        for(var i=0;i<square.body.length;i++){
+            if(square.body[i][0].row==-1){
+                gameOver();
+                return;
+            }
+        }
+    }
+    function checkRowSquare(row){//判断当前行是否应该移除
+        for(var i=0;i<maxCol;i++){
+            if(!isBottomCell(row,i)){
+                return false;
+            }
+        }
+        return true;
+    }
+    function removeFitSquares(row,count){//从第row行开始，移除所有列最后count个方块
+        for(var i=0;i<maxCol;i++){
+            var end = row;
+            for(var k=row;k>=0;k--){
+                if(isBottomCell(k,i)){
+                    end=k;
+                }else{
+                  break;
+                }
+            }
+            for(var j=0;j<count;j++){
+                removeCell(end+j,i);
+            }
+        }
+    }
+    function HashSet(){
+        var hashSet = new Object();
+        hashSet.data = new Array();
+        hashSet.add = function(e){
+            if(hashSet.data[e]==e){
+                return false;
+            }else{
+                hashSet.data[e]=e;
+                return true;
+            }
+        };
+        return hashSet;
+    }
+    function Element(row,col){
+        var e = new Object();
+        e.row = row;
+        e.col = col;
+        return e;
+    }
+
+    function gameOver(){
+        alert('Game Over!');
+        window.location.reload();
+    }
+</script>
+</html>
